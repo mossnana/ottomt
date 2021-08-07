@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 
 import firebase from './firebase'
 import { UserContext, PhasesContext } from './Providers'
@@ -7,10 +7,10 @@ import { LoadingComponent, PhaseCard } from './Components'
 export const SearchPage = props => {
     const phasesContext = React.useContext(PhasesContext)
     const userContext = React.useContext(UserContext)
-    const [keyword, setKeyword] = useState('')
-    const [engPhase, setEngPhase] = useState('')
-    const [phases, setPhases] = useState([])
-    const [isLoading, setIsLoading] = useState(true)
+    const [keyword, setKeyword] = React.useState('')
+    const [engPhase, setEngPhase] = React.useState('')
+    const [phases, setPhases] = React.useState([])
+    const [isLoading, setIsLoading] = React.useState(true)
 
     async function signout(event) {
         event.preventDefault()
@@ -37,8 +37,17 @@ export const SearchPage = props => {
         setKeyword(event.target.value)
     }
 
-    function handleAddEngPhase(event) {
+    function handleAddPhase(event) {
         setEngPhase(event.target.value)
+    }
+
+    async function handleDeletePhase(event) {
+        setIsLoading(true)
+        event.preventDefault()
+        const db = firebase.firestore()
+        await db.collection('phases').doc(event.target.name).delete()
+        await getAllPhases()
+        setIsLoading(false)
     }
 
     function submitSearchValue(event) {
@@ -69,7 +78,7 @@ export const SearchPage = props => {
         setIsLoading(false)
     }
 
-    useEffect(() => {
+    React.useEffect(() => {
         if (phasesContext.phases.length === 0) {
             getAllPhases()
         } else {
@@ -97,8 +106,8 @@ export const SearchPage = props => {
                     <React.Fragment>
                         <div className='my-5'>Add new word</div>
                         <div className='my-5 max-w-md flex flex-row items-center justify-between w-full'>
-                            <p><span class="flex rounded-full bg-indigo-500 uppercase px-2 py-1 text-xs text-white font-bold mr-3">{keyword}</span></p>
-                            <input type="text" placeholder='English phase' className="shadow appearance-none border rounded w-full py-2 px-2 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" onChange={handleAddEngPhase} />
+                            <p><span className="flex rounded-full bg-indigo-500 uppercase px-2 py-1 text-xs text-white font-bold mr-3">{keyword}</span></p>
+                            <input type="text" placeholder='English phase' className="shadow appearance-none border rounded w-full py-2 px-2 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" onChange={handleAddPhase} />
                             <button className='px-3 py-2 bg-green-400 rounded-md text-white font-bold' onClick={addSearchKeyword}>Add</button>
                         </div>
                     </React.Fragment>
@@ -109,7 +118,7 @@ export const SearchPage = props => {
                     isLoading
                         ? <div className='self-center mt-5'><LoadingComponent /></div>
                         : phases.map(phase => {
-                            return <PhaseCard key={phase.uid} {...phase} />
+                            return <PhaseCard key={phase.uid} {...phase} onDelete={handleDeletePhase} />
                         })
                 }
             </div>
