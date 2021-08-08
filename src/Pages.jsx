@@ -1,6 +1,6 @@
 import React from 'react'
 
-import firebase from './firebase'
+import { auth, firestore } from './firebase'
 import { UserContext, PhasesContext } from './Providers'
 import { LoadingComponent, PhaseCard } from './Components'
 
@@ -8,20 +8,22 @@ export const SearchPage = props => {
     const phasesContext = React.useContext(PhasesContext)
     const userContext = React.useContext(UserContext)
     const [keyword, setKeyword] = React.useState('')
+    const keywordInput = React.useRef(null)
     const [engPhase, setEngPhase] = React.useState('')
     const [phases, setPhases] = React.useState([])
-    const [isLoading, setIsLoading] = React.useState(true)
+    const [isSearching, setIsSearching] = React.useState(false)
+    const [isLoading, setIsLoading] = React.useState(false)
 
     async function signout(event) {
         event.preventDefault()
-        await firebase.auth().signOut()
+        await auth().signOut()
         window.location = '/'
     }
 
     async function addSearchKeyword(event) {
         setIsLoading(true)
         event.preventDefault()
-        const db = firebase.firestore()
+        const db = firestore()
         await db.collection('phases').add({
             th: keyword,
             en: engPhase,
@@ -39,15 +41,15 @@ export const SearchPage = props => {
 
     function handleAddPhase(event) {
         setEngPhase(event.target.value)
+        setIsSearching(false)
     }
 
     async function handleDeletePhase(event) {
         setIsLoading(true)
         event.preventDefault()
-        const db = firebase.firestore()
+        const db = firestore()
         await db.collection('phases').doc(event.target.name).delete()
         await getAllPhases()
-        setIsLoading(false)
     }
 
     function submitSearchValue(event) {
@@ -56,16 +58,20 @@ export const SearchPage = props => {
             return phase.th.includes(keyword)
         })
         setPhases(filterPhases)
+        setIsSearching(true)
     }
 
-    function resetSearchValue(event) {
+    function resetSearchValue() {
         setPhases(phasesContext.phases)
+        setKeyword('')
+        keywordInput.current.value = ''
+        setIsSearching(false)
     }
 
     async function getAllPhases() {
         setIsLoading(true)
         let documents = []
-        const db = firebase.firestore()
+        const db = firestore()
         const query = await db.collection('phases').get()
         query.forEach(document => {
             documents.push({
@@ -76,6 +82,7 @@ export const SearchPage = props => {
         phasesContext.setPhases(documents)
         setPhases(documents)
         setIsLoading(false)
+        setIsSearching(false)
     }
 
     React.useEffect(() => {
@@ -95,7 +102,13 @@ export const SearchPage = props => {
                 <button className='px-3 py-2 bg-gray-400 rounded-md text-white font-bold' onClick={signout}>Sign Out</button>
             </div>
             <div className="max-w-md flex flex-row items-center justify-between w-full">
-                <input type="text" placeholder='Search' className="shadow appearance-none border rounded w-full py-2 px-2 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" onChange={handleSearchKeyword} />
+                <input
+                    type="text"
+                    placeholder='Search'
+                    className="shadow appearance-none border rounded w-full py-2 px-2 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                    onChange={handleSearchKeyword}
+                    ref={keywordInput}
+                />
                 <button className='px-3 py-2 bg-blue-400 rounded-md text-white font-bold' onClick={submitSearchValue}>Search</button>
                 <button className='px-3 py-2 bg-red-400 rounded-md text-white font-bold' onClick={resetSearchValue}>Reset</button>
                 <button className='px-3 py-2 bg-yellow-400 rounded-md text-white font-bold' onClick={getAllPhases}>Refresh</button>
@@ -113,15 +126,27 @@ export const SearchPage = props => {
                     </React.Fragment>
                 }
             </div>
-            <div className="max-w-md w-full flex flex-col">
-                {
-                    isLoading
-                        ? <div className='self-center mt-5'><LoadingComponent /></div>
-                        : phases.map(phase => {
-                            return <PhaseCard key={phase.uid} {...phase} onDelete={handleDeletePhase} />
-                        })
-                }
-            </div>
+            {
+                isLoading && (
+                    <div className="max-w-md w-full flex flex-col">
+                        <div className='self-center mt-5'><LoadingComponent /></div>
+                    </div>
+                )
+            }
+            {
+                isSearching ? (
+                    <div className="max-w-md w-full flex flex-col">
+                        {
+                            phases.map(phase => {
+                                return <PhaseCard key={phase.uid} {...phase} onDelete={handleDeletePhase} />
+                            })
+                        }
+                    </div>
+                ) :
+                (
+                    <p>Please search something</p>
+                )
+            }
         </div>
     )
 }
@@ -172,7 +197,7 @@ export const SigninPage = props => {
         event.preventDefault()
         setIsLoading(true)
         try {
-            const userCertificate = await firebase.auth().signInWithEmailAndPassword(email, password)
+            const userCertificate = await auth().signInWithEmailAndPassword(email, password)
             handleUserContext(userCertificate.user)
         } catch (error) {
             setStatus({
@@ -198,7 +223,7 @@ export const SigninPage = props => {
 
     React.useEffect(() => {
         function unsubscribe() {
-            firebase.auth().onAuthStateChanged(user => {
+            auth().onAuthStateChanged(user => {
                 if (user) {
                     setStatus({
                         title: `Hello !!!`,
